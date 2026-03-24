@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const pdf = require('pdf-parse');
 // const { pipeline } = require('@xenova/transformers'); // Dynamic import needed for ESM
-const { IndexFlatL2 } = require('faiss-node');
+// const { IndexFlatL2 } = require('faiss-node'); // Removed for Vercel compatibility
 
 class RAGSystem {
     constructor() {
@@ -16,7 +16,7 @@ class RAGSystem {
         // Load the embedding model (local)
         const { pipeline } = await import('@xenova/transformers');
         this.embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-        this.index = new IndexFlatL2(this.dimension);
+        this.index = []; // Use a simple array for pure JS search
     }
 
     async ingestPDF(filePath) {
@@ -43,9 +43,10 @@ class RAGSystem {
             // (Rough heuristic for demonstration; in prod we'd parse per-page)
             const approxPage = Math.floor((i / newChunks.length) * data.numpages) + 1;
             
-            this.index.add(embedding);
+            // this.index.add(embedding); // Old faiss call
             this.chunks.push({
                 text: chunk,
+                embedding: embedding, // Store embedding for later search
                 metadata: {
                     source: fileName,
                     page: approxPage
@@ -78,18 +79,26 @@ class RAGSystem {
     }
 
     async query(queryText, k = 5) {
-        if (!this.index || this.index.ntotal() === 0) {
+        if (!this.chunks || this.chunks.length === 0) {
             console.log("RAG: Index is empty. No context retrieved.");
             return [];
         }
         const queryEmbedding = await this.getEmbedding(queryText);
         
-        // Find best k: at least 1, at most this.index.ntotal()
-        const actualK = Math.min(k, this.index.ntotal());
-        if (actualK <= 0) return [];
+        // Brute-force L2 distance search in pure JS
+        const results = this.chunks
+            .map((chunk, idx) => {
+                const dist = this.l2Distance(queryEmbedding, chunk.embedding);
+                return { idx, dist };
+            })
+            .sort((a, b) => a.dist - b.dist) // Smallest distance first
+            .slice(0, k);
 
-        const results = this.index.search(queryEmbedding, actualK);
-        return results.labels.map(idx => this.chunks[idx]);
+        return results.map(r => this.chunks[r.idx]);
+    }
+
+    l2Distance(v1, v2) {
+        return Math.sqrt(v1.reduce((sum, val, i) => sum + Math.pow(val - v2[i], 2), 0));
     }
 }
 

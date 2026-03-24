@@ -56,7 +56,7 @@ const App = () => {
     } catch (error) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Error: The Stores Code engine is temporarily unavailable. Please ensure the backend is running on port 5010.",
+        content: `Error: The Stores Code engine is temporarily unavailable. Detail: ${error.response?.data?.error || error.message || "Unknown Error"}`,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
     } finally {
