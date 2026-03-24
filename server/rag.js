@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const pdf = require('pdf-parse');
-const { pipeline } = require('@xenova/transformers');
+// const { pipeline } = require('@xenova/transformers'); // Dynamic import needed for ESM
 const { IndexFlatL2 } = require('faiss-node');
 
 class RAGSystem {
@@ -14,6 +14,7 @@ class RAGSystem {
 
     async init() {
         // Load the embedding model (local)
+        const { pipeline } = await import('@xenova/transformers');
         this.embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
         this.index = new IndexFlatL2(this.dimension);
     }
